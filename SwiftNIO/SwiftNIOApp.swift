@@ -8,11 +8,19 @@
 import SwiftUI
 import NIO
 
-// GOAL: Create a TCP socket connection to localhost ftp server. List each step required for a successful SwiftNIO connection.
+// GOAL: Create a TCP client, which is able to connect to an FTP server, send commands and receive inbound data to be displayed to the user. 	
+
+// SwiftNIO is an event-driven network framework, designed to absract much of the network socket paradigm away.
+// 1. Event loops are "listeners" which trigger an action when parameters are met
+// 2. Channels encapsulate a network socket, each channel usually runs along a figurative "channel pipeline"
+// 3. Each pipeline has a set of specified inbound or outbound handlers
+
+
 
 class networkLogic: ObservableObject {
     let group: EventLoopGroup // Event loop groups, are a truncation of multiple event workers which wait for network operations.
     @Published var statusMessage: String = ""
+    @Published var serverResponse: String = ""
     var channel: Channel?
     
     
@@ -30,15 +38,13 @@ class networkLogic: ObservableObject {
         
         
     }
-    
+    // TODO: Add a response handler mechanism to receive updates from server
     func setupConnection() {
         let bootstrap = ClientBootstrap(group: self.group)
             .channelInitializer { channel in
                 channel.pipeline.addHandlers([
-                   // responseDecoder(),
                    // responseHandler(),
-                   // commandEncoder(),
-                   // commandSender()
+
                     
                 ])
             }
@@ -82,12 +88,49 @@ class networkLogic: ObservableObject {
                     }
                 }
             }
+        
+        
+        
+    }
+}
+
+// Logic for decoding frames being received along pipeline, made with the help from SwiftNIOExtras
+// https://github.com/apple/swift-nio-extras/blob/main/Sources/NIOExtras/LineBasedFrameDecoder.swift
+
+public final class LineBasedFrameDecoder: ByteToMessageDecoder {
+    public typealias InboundOut = String //converting data from server to a readable string
+    
+    
+    // takes in a buffer (the data itself), returns the decoded information
+    public func decode(context: ChannelHandlerContext, buffer: inout ByteBuffer) throws -> DecodingState {
+        
+        // 1. Query for newline char, read data on lines where a newline char exists
+        // 2. Skip newline char upon reading
+        if let newlineIndex = buffer.readableBytesView.firstIndex(of: UInt8(ascii:"\n")) {
+            
+            if let line = buffer.readString(length: newlineIndex) {
+                buffer.moveReaderIndex(forwardBy: 1)
+                context.fireChannelRead(self.wrapInboundOut(line))
+                
+                return .continue
+            }
+        }
+        
+        return .needMoreData
     }
     
+}
 
+final class ResponseHandler: ChannelInboundHandler {
     
+    typealias InboundIn = String
+    var responseHandler: ((String) -> Void)?
     
-    
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        let response = self.unwrapInboundIn(data)
+        responseHandler?(response)
+        print("Inbound Response: \(response)")
+    }
 }
 
 @main

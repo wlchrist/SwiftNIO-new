@@ -21,15 +21,14 @@ struct ContentView: View {
             TextField("Username", text: $username)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding()
-            TextField("Password", text: $password)
+            SecureField("Password", text: $password)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding()
-            Button("Connect to server") {
+            Button("Login/Connect") {
                 self.netLogicSession.setupConnection()
-                
-            }
-            Button("Login") {
                 netLogicSession.sendLogin(username: username, password: password)
+                
+                
             }
             
             Text(netLogicSession.statusMessage)

@@ -41,10 +41,11 @@ class networkLogic: ObservableObject {
     // TODO: Add a response handler mechanism to receive updates from server
     func setupConnection() {
         let bootstrap = ClientBootstrap(group: self.group)
+        
+        // Add handlers here
             .channelInitializer { channel in
                 channel.pipeline.addHandlers([
-                   // responseHandler(),
-
+                   myInboundHandler()
                     
                 ])
             }
@@ -130,6 +131,22 @@ final class ResponseHandler: ChannelInboundHandler {
         let response = self.unwrapInboundIn(data)
         responseHandler?(response)
         print("Inbound Response: \(response)")
+    }
+}
+
+class myInboundHandler: ChannelInboundHandler {
+    typealias InboundIn = ByteBuffer
+
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        var byteBuffer = self.unwrapInboundIn(data)
+
+        if let receivedString = byteBuffer.readString(length: byteBuffer.readableBytes) {
+            print("Received: \(receivedString)")
+        }
+    }
+
+    func channelReadComplete(context: ChannelHandlerContext) {
+        context.flush()
     }
 }
 
